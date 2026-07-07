@@ -260,9 +260,11 @@
         mergeBtn.disabled = true;
 
         try {
-            const { PDFDocument } = PDFLib;
+            // 🌟 1. pdf-lib から文字を描画するための追加ツールを読み込む
+            const { PDFDocument, rgb, degrees, StandardFonts } = PDFLib;
             const mergedPdf = await PDFDocument.create();
 
+            // （これまでの結合処理）順番通りにファイルを結合する
             for (let cond of regexConditions) {
                 if (!cond.matchedFile) continue; 
 
@@ -271,6 +273,29 @@
                 const copiedPages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
                 copiedPages.forEach((page) => mergedPdf.addPage(page));
             }
+
+            // 🌟 2. ここから追加：最後のページに透かしを入れる処理 🌟
+            const pages = mergedPdf.getPages();
+            if (pages.length > 0) {
+                // 最後のページを取得
+                const lastPage = pages[pages.length - 1];
+                // ページの幅と高さを取得（中央に配置するため）
+                const { width, height } = lastPage.getSize();
+                
+                // 標準フォントを埋め込む（英数字用）
+                const font = await mergedPdf.embedFont(StandardFonts.HelveticaBold);
+
+                // 透かしのテキストを描画
+                lastPage.drawText('VERIFIED', {
+                    x: width - 100,       // 横位置（適宜調整）
+                    y: 15,       // 縦位置（適宜調整）
+                    size: 10,                 // 文字のサイズ
+                    font: font,               // フォント
+                    color: rgb(0.9, 0.2, 0.2),// 色（赤っぽく設定）
+                    opacity: 0.3,             // 透明度（0.0〜1.0で指定、0.3で半透明）
+                });
+            }
+            // 🌟 透かし処理ここまで 🌟
 
             const pdfBytes = await mergedPdf.save();
             const blob = new Blob([pdfBytes], { type: 'application/pdf' });
