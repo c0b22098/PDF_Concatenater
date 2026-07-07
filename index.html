@@ -77,9 +77,9 @@
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
     let regexConditions = [
-        { pattern: "https://github\.com/.*/blob/main/index.html", matchedFile: null, extractedUrl: null },
-        { pattern: "https://github\.com/.*/issues", matchedFile: null, extractedUrl: null },
-        { pattern: "https://github\.com/.*/commits/main/", matchedFile: null, extractedUrl: null }
+        { pattern: "https://github\.com/.*/blob/branch/README\.md", matchedFile: null, extractedUrl: null },
+        { pattern: "https://github\.com/.*/blob/branch/.*\.py", matchedFile: null, extractedUrl: null },
+        { pattern: "https://github\.com/.*/compare/main\.\.\..*", matchedFile: null, extractedUrl: null }
     ];
     let unmatchedFiles = []; 
 
