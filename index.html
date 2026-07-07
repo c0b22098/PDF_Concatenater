@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF検証・自動結合ツール</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+
+    <style>
+        body { font-family: sans-serif; padding: 2rem; background-color: #f4f4f9; color: #333; line-height: 1.6; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        
+        h2, h3 { color: #2c3e50; border-bottom: 2px solid #eee; padding-bottom: 0.5rem; }
+        
+        .regex-section { margin-bottom: 2rem; background: #fafafa; padding: 1rem; border-radius: 8px; border: 1px solid #ddd; }
+        .regex-item { display: flex; align-items: center; justify-content: space-between; padding: 0.5rem; background: white; border: 1px solid #ccc; margin-bottom: 0.5rem; border-radius: 4px; font-family: monospace; }
+        .regex-item .status { font-weight: bold; padding: 0.2rem 0.6rem; border-radius: 12px; font-size: 0.85rem; font-family: sans-serif; }
+        .status.unmet { background: #ffebee; color: #c62828; }
+        .status.met { background: #e8f5e9; color: #2e7d32; }
+        
+        .add-regex { display: flex; gap: 0.5rem; margin-top: 1rem; }
+        .add-regex input { flex-grow: 1; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px; font-family: monospace; }
+        
+        #drop-zone { border: 2px dashed #999; border-radius: 8px; padding: 3rem; text-align: center; color: #666; transition: all 0.2s ease; cursor: pointer; background: #fff; }
+        #drop-zone.dragover { border-color: #2196F3; background-color: #e3f2fd; color: #2196F3; }
+        
+        .file-list { list-style: none; padding: 0; margin: 1rem 0; }
+        /* 🌟 ファイルアイテムのレイアウトを調整（削除ボタンを右に寄せるため） */
+        .file-item { display: flex; justify-content: space-between; align-items: flex-start; padding: 1rem; border: 1px solid #ddd; margin-bottom: 0.5rem; border-radius: 4px; background: white; }
+        .file-details { flex-grow: 1; margin-right: 1rem; }
+        .file-info { font-weight: bold; margin-bottom: 0.25rem; }
+        .url-info { font-size: 0.9rem; color: #555; word-break: break-all; }
+        .match-badge { display: inline-block; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.8rem; margin-top: 0.5rem; font-weight: bold; }
+        .match-success { background: #e3f2fd; color: #1565c0; border: 1px solid #bbdefb; }
+        .match-error { background: #ffebee; color: #c62828; border: 1px solid #ffcdd2; }
+        
+        button { padding: 0.5rem 1rem; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background-color: #45a049; }
+        /* 🌟 削除ボタンのデザイン */
+        button.btn-danger { background-color: #f44336; padding: 0.3rem 0.6rem; font-size: 0.85rem; }
+        button.btn-danger:hover { background-color: #da190b; }
+        button.btn-file-delete { margin-top: 0.2rem; }
+        
+        #merge-btn { width: 100%; padding: 1rem; font-size: 1.1rem; margin-top: 1rem; background-color: #2196F3; display: block; }
+        #merge-btn:hover { background-color: #1976D2; }
+        #merge-btn:disabled { background-color: #ccc; cursor: not-allowed; }
+        
+        #status-message { margin-top: 1rem; text-align: center; font-weight: bold; font-size: 1.1rem; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>📄 PDF検証・自動結合ツール</h2>
+    <p>PDF内のURLを抽出し、条件に合致するかチェックします。<br>全てのPDFファイルが揃うと、<strong>条件リストの順番通りに結合</strong>してダウンロードできます。</p>
+
+    <div class="regex-section">
+        <h3>1. 結合条件</h3>
+        <div id="regex-list"></div>
+    </div>
+
+    <h3>2. PDFファイルの投入</h3>
+    <div id="drop-zone">
+        ここに複数のPDFファイルをドラッグ＆ドロップ<br>またはクリックして選択
+    </div>
+    <input type="file" id="file-input" accept=".pdf" multiple style="display: none;">
+    
+    <ul id="file-list" class="file-list"></ul>
+
+    <button id="merge-btn" disabled>条件に当てはまるPDFファイルが揃っていません（結合不可）</button>
+    <div id="status-message"></div>
+</div>
+
+<script>
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+    let regexConditions = [
+        { pattern: "https://github\.com/.*/blob/main/index.html", matchedFile: null, extractedUrl: null },
+        { pattern: "https://github\.com/.*/issues", matchedFile: null, extractedUrl: null },
+        { pattern: "https://github\.com/.*/commits/main/", matchedFile: null, extractedUrl: null }
+    ];
+    let unmatchedFiles = []; 
+
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+    const regexListDiv = document.getElementById('regex-list');
+    const fileListUl = document.getElementById('file-list');
+    const mergeBtn = document.getElementById('merge-btn');
+    const statusMsg = document.getElementById('status-message');
+
+    function render() {
+        regexListDiv.innerHTML = '';
+        let metCount = 0;
+
+        regexConditions.forEach((cond, index) => {
+            const isMet = cond.matchedFile !== null;
+            if (isMet) metCount++;
+            
+            const div = document.createElement('div');
+            div.className = 'regex-item';
+            div.innerHTML = `
+                <div>
+                    <span class="status ${isMet ? 'met' : 'unmet'}">${isMet ? '✅ 確認済み' : '❌ 未確認'}</span>
+                    <span>${cond.pattern}</span>
+                </div>
+            `;
+            regexListDiv.appendChild(div);
+        });
+
+        fileListUl.innerHTML = '';
+        
+        // 🌟 適合ファイルの描画（削除ボタン追加）
+        regexConditions.forEach((cond, index) => {
+            if (cond.matchedFile) {
+                const li = document.createElement('li');
+                li.className = 'file-item';
+                li.innerHTML = `
+                    <div class="file-details">
+                        <div class="file-info">📄 ${cond.matchedFile.name}</div>
+                        <div class="url-info">🔗 抽出URL: ${cond.extractedUrl}</div>
+                        <div class="match-badge match-success">🎯 条件合致: ${cond.pattern}</div>
+                    </div>
+                    <button class="btn-danger btn-file-delete" onclick="removeMatchedFile(${index})">✕ 削除</button>
+                `;
+                fileListUl.appendChild(li);
+            }
+        });
+
+        // 🌟 不適合ファイルの描画（削除ボタン追加）
+        unmatchedFiles.forEach((item, index) => {
+            const li = document.createElement('li');
+            li.className = 'file-item';
+            li.innerHTML = `
+                <div class="file-details">
+                    <div class="file-info">📄 ${item.file.name}</div>
+                    <div class="url-info">🔗 抽出URL: ${item.url || 'URLが見つかりません'}</div>
+                    <div class="match-badge match-error">⚠️ 不適合ファイル</div>
+                </div>
+                <button class="btn-danger btn-file-delete" onclick="removeUnmatchedFile(${index})">✕ 削除</button>
+            `;
+            fileListUl.appendChild(li);
+        });
+
+        const isReady = regexConditions.length > 0 && metCount === regexConditions.length;
+        if (isReady) {
+            mergeBtn.disabled = false;
+            mergeBtn.innerText = '✅ PDFを結合してダウンロード';
+        } else {
+            mergeBtn.disabled = true;
+            mergeBtn.innerText = `条件に当てはまるPDFファイルが揃っていません（${metCount} / ${regexConditions.length}）`;
+        }
+    }
+
+    window.addRegex = function() {
+        const input = document.getElementById('new-regex');
+        const pattern = input.value.trim();
+        if (pattern) {
+            try { new RegExp(pattern); } catch(e) { alert('正規表現の構文が正しくありません。'); return; }
+            regexConditions.push({ pattern: pattern, matchedFile: null, extractedUrl: null });
+            input.value = '';
+            render();
+        }
+    }
+
+    window.removeRegex = function(index) {
+        regexConditions.splice(index, 1);
+        render();
+    }
+
+    // 🌟 適合ファイルをリストから外す処理
+    window.removeMatchedFile = function(index) {
+        regexConditions[index].matchedFile = null;
+        regexConditions[index].extractedUrl = null;
+        render(); // 画面を再描画して結合ボタンの判定などをやり直す
+    }
+
+    // 🌟 不適合ファイルをリストから削除する処理
+    window.removeUnmatchedFile = function(index) {
+        unmatchedFiles.splice(index, 1);
+        render();
+    }
+
+    dropZone.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', (e) => processFiles(e.target.files));
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        processFiles(e.dataTransfer.files);
+    });
+
+    async function processFiles(files) {
+        statusMsg.innerText = '🔍 PDFを解析中...';
+        statusMsg.style.color = '#333';
+
+        for (let file of files) {
+            if (file.type !== 'application/pdf') continue;
+
+            try {
+                const firstUrl = await extractFirstUrlFromPdf(file);
+                let matched = false;
+                
+                if (firstUrl) {
+                    for (let cond of regexConditions) {
+                        const regex = new RegExp(cond.pattern);
+                        if (regex.test(firstUrl)) {
+                            cond.matchedFile = file;
+                            cond.extractedUrl = firstUrl;
+                            matched = true;
+                            break; 
+                        }
+                    }
+                }
+
+                if (!matched) {
+                    unmatchedFiles.push({ file: file, url: firstUrl });
+                }
+
+            } catch (error) {
+                console.error('PDF解析エラー:', error);
+                unmatchedFiles.push({ file: file, url: '解析エラー（暗号化等）' });
+            }
+        }
+        
+        fileInput.value = '';
+        statusMsg.innerText = '';
+        render();
+    }
+
+    async function extractFirstUrlFromPdf(file) {
+        const arrayBuffer = await file.arrayBuffer();
+        const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+        const pdf = await loadingTask.promise;
+        
+        let fullText = '';
+        
+        for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+            const page = await pdf.getPage(pageNum);
+            const textContent = await page.getTextContent();
+            
+            const pageStrings = textContent.items.map(item => item.str);
+            fullText += pageStrings.join(' ') + ' ';
+            
+            const urlRegex = /https?:\/\/[^\s]+/i;
+            const match = fullText.match(urlRegex);
+            
+            if (match) {
+                return match[0]; 
+            }
+        }
+        return null; 
+    }
+
+    mergeBtn.addEventListener('click', async () => {
+        statusMsg.innerText = '⚙️ 結合処理を実行中...';
+        statusMsg.style.color = '#333';
+        mergeBtn.disabled = true;
+
+        try {
+            const { PDFDocument } = PDFLib;
+            const mergedPdf = await PDFDocument.create();
+
+            for (let cond of regexConditions) {
+                if (!cond.matchedFile) continue; 
+
+                const arrayBuffer = await cond.matchedFile.arrayBuffer();
+                const pdf = await PDFDocument.load(arrayBuffer);
+                const copiedPages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
+                copiedPages.forEach((page) => mergedPdf.addPage(page));
+            }
+
+            const pdfBytes = await mergedPdf.save();
+            const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+            const url = window.URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'validated_merged.pdf';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+
+            statusMsg.innerText = '✨ ダウンロードが完了しました！';
+            statusMsg.style.color = '#2e7d32';
+
+        } catch (error) {
+            console.error(error);
+            statusMsg.innerText = '❌ 結合処理中にエラーが発生しました。';
+            statusMsg.style.color = '#c62828';
+        } finally {
+            render(); 
+        }
+    });
+
+    render();
+</script>
+
+</body>
+</html>
