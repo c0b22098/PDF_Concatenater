@@ -8,6 +8,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 
+    <!-- 正規表現のファイルを読み込む -->
+    <script src="regex_config.js"></script>
+
     <style>
         body { font-family: sans-serif; padding: 2rem; background-color: #f4f4f9; color: #333; line-height: 1.6; }
         .container { max-width: 800px; margin: 0 auto; background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
@@ -76,11 +79,10 @@
 <script>
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-    let regexConditions = [
-        { pattern: "https://github\.com/.*/blob/.*/README\.md", matchedFile: null, extractedUrl: null },
-        { pattern: "https://github\.com/.*/blob/.*/.*\.py", matchedFile: null, extractedUrl: null },
-        { pattern: "https://github\.com/.*/compare/main\.\.\..*", matchedFile: null, extractedUrl: null }
-    ];
+    // 外部ファイル(regex_config.js)からリストを読み込んで状態管理の配列を作る
+    let regexConditions = REGEX_LIST_EX5.map(pattern => {
+        return { pattern: pattern, matchedFile: null, extractedUrl: null };
+    });
     let unmatchedFiles = []; 
 
     const dropZone = document.getElementById('drop-zone');
