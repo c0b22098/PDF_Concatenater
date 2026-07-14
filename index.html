@@ -79,8 +79,15 @@
 <script>
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
+    // 🌟 URLパラメータを取得する
+    const urlParams = new URLSearchParams(window.location.search);
+    const listId = urlParams.get('ex'); // URLが ?list=5 なら "5" が入る
+
+    // 指定された番号のリストを取得。指定がない、または存在しない番号の場合は "default" を使う
+    let targetList = REGEX_LISTS[listId] || REGEX_LISTS["default"];
+
     // 外部ファイル(regex_config.js)からリストを読み込んで状態管理の配列を作る
-    let regexConditions = REGEX_LIST_EX5.map(pattern => {
+    let regexConditions = targetList.map(pattern => {
         return { pattern: pattern, matchedFile: null, extractedUrl: null };
     });
     let unmatchedFiles = []; 
