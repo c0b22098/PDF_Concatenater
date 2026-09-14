@@ -276,7 +276,7 @@
             if (file.type !== 'application/pdf') continue;
 
             try {
-                const firstUrl = await extractFirstUrlFromPdf(file);
+                const firstUrl = await extractUrlFromPdf(file);
                 let matched = false;
                 
                 if (firstUrl) {
@@ -306,28 +306,53 @@
         render();
     }
 
-    async function extractFirstUrlFromPdf(file) {
+    // Chromeなどのブラウザで「ヘッダーとフッター」を有効にして印刷（PDF保存）すると、
+    // 各ページ下端の余白に「印刷元ページのURL」が全ページ共通で印字される。
+    // このフッターは本文の内容に関わらず全ページで同一のため、
+    //   1. ページ下端の余白内（印刷フッターの位置）にあるテキストだけを対象にURLを探す
+    //   2. 全ページ分の候補を集計し、最も多くのページで一致したURLを採用する（多数決）
+    // という手順にすることで、本文中に別のURL（README内のリンクなど）が
+    // 偶然含まれていても、それに惑わされず印刷元のURLを正しく特定できる。
+    // フッターにURLが見つからない場合（印刷時に「ヘッダーとフッター」がOFF等）は、
+    // 従来通りページ本文全体から最初に見つかったURLにフォールバックする。
+    const URL_REGEX = /https?:\/\/[^\s]+/i;
+    const FOOTER_MARGIN_PT = 40; // Chrome既定の印刷余白(0.4in=28.8pt)を少し超える範囲
+
+    async function extractUrlFromPdf(file) {
         const arrayBuffer = await file.arrayBuffer();
         const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
         const pdf = await loadingTask.promise;
-        
-        let fullText = '';
-        
+
+        const footerUrlVotes = new Map();
+        let wholeText = '';
+
         for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
             const page = await pdf.getPage(pageNum);
             const textContent = await page.getTextContent();
-            
-            const pageStrings = textContent.items.map(item => item.str);
-            fullText += pageStrings.join(' ') + ' ';
-            
-            const urlRegex = /https?:\/\/[^\s]+/i;
-            const match = fullText.match(urlRegex);
-            
-            if (match) {
-                return match[0]; 
+
+            // item.transform[5] はページ下端からの距離（PDF座標系はY軸が上向き）。
+            // これが小さい（ページ下端に近い）テキストだけを印刷フッターとみなす。
+            const footerText = textContent.items
+                .filter(item => item.transform[5] <= FOOTER_MARGIN_PT)
+                .sort((a, b) => a.transform[4] - b.transform[4]) // 左から右の順に並べ替え
+                .map(item => item.str)
+                .join('');
+            const footerMatch = footerText.match(URL_REGEX);
+            if (footerMatch) {
+                footerUrlVotes.set(footerMatch[0], (footerUrlVotes.get(footerMatch[0]) || 0) + 1);
             }
+
+            wholeText += textContent.items.map(item => item.str).join(' ') + ' ';
         }
-        return null; 
+
+        if (footerUrlVotes.size > 0) {
+            const [bestUrl] = [...footerUrlVotes.entries()].sort((a, b) => b[1] - a[1])[0];
+            return bestUrl;
+        }
+
+        // フォールバック: フッターにURLが見つからない場合は本文全体から探す
+        const wholeMatch = wholeText.match(URL_REGEX);
+        return wholeMatch ? wholeMatch[0] : null;
     }
 
     mergeBtn.addEventListener('click', async () => {
