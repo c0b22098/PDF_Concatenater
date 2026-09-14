@@ -23,6 +23,8 @@
         .regex-item .status { font-weight: bold; padding: 0.2rem 0.6rem; border-radius: 12px; font-size: 0.85rem; font-family: sans-serif; }
         .status.unmet { background: #ffebee; color: #c62828; }
         .status.met { background: #e8f5e9; color: #2e7d32; }
+        .list-info { font-weight: bold; color: #1565c0; margin: 0 0 0.75rem; }
+        .list-info.invalid { color: #c62828; }
 
         #drop-zone { border: 2px dashed #999; border-radius: 8px; padding: 3rem; text-align: center; color: #666; transition: all 0.2s ease; cursor: pointer; background: #fff; }
         #drop-zone.dragover { border-color: #2196F3; background-color: #e3f2fd; color: #2196F3; }
@@ -59,6 +61,7 @@
 
     <div class="regex-section">
         <h3>1. 結合条件</h3>
+        <p id="list-info" class="list-info"></p>
         <div id="regex-list"></div>
     </div>
 
@@ -100,10 +103,28 @@
 
     // 🌟 URLパラメータを取得する
     const urlParams = new URLSearchParams(window.location.search);
-    const listId = urlParams.get('ex'); // URLが ?list=5 なら "5" が入る
+    const rawListId = urlParams.get('ex'); // URLが ?ex=5 なら "5" が入る
 
-    // 指定された番号のリストを取得。指定がない、または存在しない番号の場合は "default" を使う
-    let targetList = REGEX_LISTS[listId] || REGEX_LISTS["default"];
+    // "ex" は1以上の整数（例: "5"）のみ有効とする。
+    // "__proto__" 等の任意の文字列がオブジェクトのプロパティとして
+    // 解釈されるのを防ぐため、数字のみの形式かつ実際にリストが
+    // 存在する場合だけそのリストを使う。
+    const isValidListId = rawListId !== null
+        && /^[1-9][0-9]*$/.test(rawListId)
+        && Object.prototype.hasOwnProperty.call(REGEX_LISTS, rawListId);
+
+    // 有効な番号のリストを取得。指定がない、または無効な番号の場合は "default" を使う
+    let targetList = isValidListId ? REGEX_LISTS[rawListId] : REGEX_LISTS["default"];
+
+    // 🌟 画面上に「今どの回の条件を見ているか」を表示する
+    const listInfoEl = document.getElementById('list-info');
+    if (isValidListId) {
+        listInfoEl.textContent = `第${rawListId}回用`;
+        listInfoEl.classList.remove('invalid');
+    } else {
+        listInfoEl.textContent = '⚠️ 回数（exパラメータ）が指定されていないか無効なため、既定の条件を表示しています。';
+        listInfoEl.classList.add('invalid');
+    }
 
     // 外部ファイル(regex_config.js)からリストを読み込んで状態管理の配列を作る
     let regexConditions = targetList.map(pattern => {
