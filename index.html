@@ -19,10 +19,13 @@
         h2, h3 { color: #2c3e50; border-bottom: 2px solid #eee; padding-bottom: 0.5rem; }
         
         .regex-section { margin-bottom: 2rem; background: #fafafa; padding: 1rem; border-radius: 8px; border: 1px solid #ddd; }
-        .regex-item { display: flex; align-items: center; justify-content: space-between; padding: 0.5rem; background: white; border: 1px solid #ccc; margin-bottom: 0.5rem; border-radius: 4px; font-family: monospace; }
-        .regex-item .status { font-weight: bold; padding: 0.2rem 0.6rem; border-radius: 12px; font-size: 0.85rem; font-family: sans-serif; }
+        .regex-item { padding: 0.5rem; background: white; border: 1px solid #ccc; margin-bottom: 0.5rem; border-radius: 4px; }
+        .regex-item-main { display: flex; align-items: center; gap: 0.5rem; font-family: monospace; }
+        .regex-item .status { font-weight: bold; padding: 0.2rem 0.6rem; border-radius: 12px; font-size: 0.85rem; font-family: sans-serif; flex-shrink: 0; }
         .status.unmet { background: #ffebee; color: #c62828; }
         .status.met { background: #e8f5e9; color: #2e7d32; }
+        .pattern { word-break: break-all; }
+        .pattern-desc { font-family: sans-serif; font-size: 0.85rem; color: #555; margin-top: 0.35rem; }
         .list-info { font-weight: bold; color: #1565c0; margin: 0 0 0.75rem; }
         .list-info.invalid { color: #c62828; }
 
@@ -126,9 +129,19 @@
         listInfoEl.classList.add('invalid');
     }
 
+    // regex_config.js の各条件は { pattern, description } 形式を基本とするが、
+    // 説明なしで文字列だけが書かれていた場合にも対応する。
+    function normalizeCondition(entry) {
+        if (typeof entry === 'string') {
+            return { pattern: entry, description: '' };
+        }
+        return { pattern: entry.pattern, description: entry.description || '' };
+    }
+
     // 外部ファイル(regex_config.js)からリストを読み込んで状態管理の配列を作る
-    let regexConditions = targetList.map(pattern => {
-        return { pattern: pattern, matchedFile: null, extractedUrl: null };
+    let regexConditions = targetList.map(entry => {
+        const { pattern, description } = normalizeCondition(entry);
+        return { pattern: pattern, description: description, matchedFile: null, extractedUrl: null };
     });
     let unmatchedFiles = []; 
 
@@ -157,10 +170,11 @@
             const div = document.createElement('div');
             div.className = 'regex-item';
             div.innerHTML = `
-                <div>
+                <div class="regex-item-main">
                     <span class="status ${isMet ? 'met' : 'unmet'}">${isMet ? '✅ 確認済み' : '❌ 未確認'}</span>
-                    <span>${escapeHtml(cond.pattern)}</span>
+                    <span class="pattern">${escapeHtml(cond.pattern)}</span>
                 </div>
+                ${cond.description ? `<div class="pattern-desc">📝 ${escapeHtml(cond.description)}</div>` : ''}
             `;
             regexListDiv.appendChild(div);
         });
@@ -176,7 +190,8 @@
                     <div class="file-details">
                         <div class="file-info">📄 ${escapeHtml(cond.matchedFile.name)}</div>
                         <div class="url-info">🔗 抽出URL: ${escapeHtml(cond.extractedUrl)}</div>
-                        <div class="match-badge match-success">🎯 条件合致: ${escapeHtml(cond.pattern)}</div>
+                        <div class="match-badge match-success">🎯 条件合致: ${cond.description ? escapeHtml(cond.description) : escapeHtml(cond.pattern)}</div>
+                        ${cond.description ? `<div class="pattern-desc">（${escapeHtml(cond.pattern)}）</div>` : ''}
                     </div>
                     <button class="btn-danger btn-file-delete" onclick="removeMatchedFile(${index})">✕ 削除</button>
                 `;
