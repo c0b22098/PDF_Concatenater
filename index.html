@@ -69,7 +69,7 @@
     </div>
 
     <h3>2. PDFファイルの投入</h3>
-    <div id="drop-zone">
+    <div id="drop-zone" role="button" tabindex="0">
         ここに複数のPDFファイルをドラッグ＆ドロップ<br>またはクリックして選択
     </div>
     <input type="file" id="file-input" accept=".pdf" multiple style="display: none;">
@@ -81,6 +81,13 @@
 </div>
 
 <script>
+    // 絵文字アイコンはあくまで隣接するテキストを視覚的に補うだけの装飾であり、
+    // 意味は直後のテキストがすべて伝えている。スクリーンリーダーが絵文字自体を
+    // 読み上げて混乱しないよう aria-hidden="true" で隠す（見た目は変わらない）。
+    function withIcon(emoji, text) {
+        return `<span aria-hidden="true">${emoji}</span> ${text}`;
+    }
+
     // regex_config.js をキャッシュさせずに読み込む。
     // GitHub上で正規表現リストを更新したら、次回のページ読み込みで即座に反映されるようにするため、
     // 静的な <script src="regex_config.js"> ではなく、毎回異なるクエリ文字列を付けて動的に読み込む。
@@ -96,7 +103,7 @@
 
     loadRegexConfig().then(initApp).catch((error) => {
         console.error(error);
-        document.getElementById('status-message').innerText = '❌ 結合条件の読み込みに失敗しました。ページを再読み込みしてください。';
+        document.getElementById('status-message').innerHTML = withIcon('❌', '結合条件の読み込みに失敗しました。ページを再読み込みしてください。');
     });
 
     function initApp() {
@@ -125,7 +132,7 @@
         listInfoEl.textContent = `第${rawListId}回用`;
         listInfoEl.classList.remove('invalid');
     } else {
-        listInfoEl.textContent = '⚠️ 回数（exパラメータ）が指定されていないか無効なため、既定の条件を表示しています。';
+        listInfoEl.innerHTML = withIcon('⚠️', '回数（exパラメータ）が指定されていないか無効なため、既定の条件を表示しています。');
         listInfoEl.classList.add('invalid');
     }
 
@@ -171,10 +178,10 @@
             div.className = 'regex-item';
             div.innerHTML = `
                 <div class="regex-item-main">
-                    <span class="status ${isMet ? 'met' : 'unmet'}">${isMet ? '✅ 確認済み' : '❌ 未確認'}</span>
+                    <span class="status ${isMet ? 'met' : 'unmet'}">${isMet ? withIcon('✅', '確認済み') : withIcon('❌', '未確認')}</span>
                     <span class="pattern">${escapeHtml(cond.pattern)}</span>
                 </div>
-                ${cond.description ? `<div class="pattern-desc">📝 ${escapeHtml(cond.description)}</div>` : ''}
+                ${cond.description ? `<div class="pattern-desc">${withIcon('📝', escapeHtml(cond.description))}</div>` : ''}
             `;
             regexListDiv.appendChild(div);
         });
@@ -188,12 +195,12 @@
                 li.className = 'file-item';
                 li.innerHTML = `
                     <div class="file-details">
-                        <div class="file-info">📄 ${escapeHtml(cond.matchedFile.name)}</div>
-                        <div class="url-info">🔗 抽出URL: ${escapeHtml(cond.extractedUrl)}</div>
-                        <div class="match-badge match-success">🎯 条件合致: ${cond.description ? escapeHtml(cond.description) : escapeHtml(cond.pattern)}</div>
+                        <div class="file-info">${withIcon('📄', escapeHtml(cond.matchedFile.name))}</div>
+                        <div class="url-info">${withIcon('🔗', '抽出URL: ' + escapeHtml(cond.extractedUrl))}</div>
+                        <div class="match-badge match-success">${withIcon('🎯', '条件合致: ' + (cond.description ? escapeHtml(cond.description) : escapeHtml(cond.pattern)))}</div>
                         ${cond.description ? `<div class="pattern-desc">（${escapeHtml(cond.pattern)}）</div>` : ''}
                     </div>
-                    <button class="btn-danger btn-file-delete" onclick="removeMatchedFile(${index})">✕ 削除</button>
+                    <button class="btn-danger btn-file-delete" onclick="removeMatchedFile(${index})">${withIcon('✕', '削除')}</button>
                 `;
                 fileListUl.appendChild(li);
             }
@@ -205,11 +212,11 @@
             li.className = 'file-item';
             li.innerHTML = `
                 <div class="file-details">
-                    <div class="file-info">📄 ${escapeHtml(item.file.name)}</div>
-                    <div class="url-info">🔗 抽出URL: ${item.url ? escapeHtml(item.url) : 'URLが見つかりません'}</div>
-                    <div class="match-badge match-error">⚠️ 不適合ファイル</div>
+                    <div class="file-info">${withIcon('📄', escapeHtml(item.file.name))}</div>
+                    <div class="url-info">${withIcon('🔗', '抽出URL: ' + (item.url ? escapeHtml(item.url) : 'URLが見つかりません'))}</div>
+                    <div class="match-badge match-error">${withIcon('⚠️', '不適合ファイル')}</div>
                 </div>
-                <button class="btn-danger btn-file-delete" onclick="removeUnmatchedFile(${index})">✕ 削除</button>
+                <button class="btn-danger btn-file-delete" onclick="removeUnmatchedFile(${index})">${withIcon('✕', '削除')}</button>
             `;
             fileListUl.appendChild(li);
         });
@@ -217,7 +224,7 @@
         const isReady = regexConditions.length > 0 && metCount === regexConditions.length;
         if (isReady) {
             mergeBtn.disabled = false;
-            mergeBtn.innerText = '✅ PDFを結合してダウンロード';
+            mergeBtn.innerHTML = withIcon('✅', 'PDFを結合してダウンロード');
         } else {
             mergeBtn.disabled = true;
             mergeBtn.innerText = `条件に当てはまるPDFファイルが揃っていません（${metCount} / ${regexConditions.length}）`;
@@ -238,6 +245,13 @@
     }
 
     dropZone.addEventListener('click', () => fileInput.click());
+    // 🌟 キーボード操作（Tabでフォーカス→Enter/Spaceで選択）に対応
+    dropZone.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
+            e.preventDefault();
+            fileInput.click();
+        }
+    });
     fileInput.addEventListener('change', (e) => processFiles(e.target.files));
     dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
     dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
@@ -248,7 +262,7 @@
     });
 
     async function processFiles(files) {
-        statusMsg.innerText = '🔍 PDFを解析中...';
+        statusMsg.innerHTML = withIcon('🔍', 'PDFを解析中...');
         statusMsg.style.color = '#333';
 
         for (let file of files) {
@@ -310,7 +324,7 @@
     }
 
     mergeBtn.addEventListener('click', async () => {
-        statusMsg.innerText = '⚙️ 結合処理を実行中...';
+        statusMsg.innerHTML = withIcon('⚙️', '結合処理を実行中...');
         statusMsg.style.color = '#333';
         mergeBtn.disabled = true;
 
@@ -364,12 +378,12 @@
             a.remove();
             window.URL.revokeObjectURL(url);
 
-            statusMsg.innerText = '✨ ダウンロードが完了しました！';
+            statusMsg.innerHTML = withIcon('✨', 'ダウンロードが完了しました！');
             statusMsg.style.color = '#2e7d32';
 
         } catch (error) {
             console.error(error);
-            statusMsg.innerText = '❌ 結合処理中にエラーが発生しました。';
+            statusMsg.innerHTML = withIcon('❌', '結合処理中にエラーが発生しました。');
             statusMsg.style.color = '#c62828';
         } finally {
             render(); 
