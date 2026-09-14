@@ -26,10 +26,7 @@
         .regex-item .status { font-weight: bold; padding: 0.2rem 0.6rem; border-radius: 12px; font-size: 0.85rem; font-family: sans-serif; }
         .status.unmet { background: #ffebee; color: #c62828; }
         .status.met { background: #e8f5e9; color: #2e7d32; }
-        
-        .add-regex { display: flex; gap: 0.5rem; margin-top: 1rem; }
-        .add-regex input { flex-grow: 1; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px; font-family: monospace; }
-        
+
         #drop-zone { border: 2px dashed #999; border-radius: 8px; padding: 3rem; text-align: center; color: #666; transition: all 0.2s ease; cursor: pointer; background: #fff; }
         #drop-zone.dragover { border-color: #2196F3; background-color: #e3f2fd; color: #2196F3; }
         
@@ -173,22 +170,6 @@
             mergeBtn.disabled = true;
             mergeBtn.innerText = `条件に当てはまるPDFファイルが揃っていません（${metCount} / ${regexConditions.length}）`;
         }
-    }
-
-    window.addRegex = function() {
-        const input = document.getElementById('new-regex');
-        const pattern = input.value.trim();
-        if (pattern) {
-            try { new RegExp(pattern); } catch(e) { alert('正規表現の構文が正しくありません。'); return; }
-            regexConditions.push({ pattern: pattern, matchedFile: null, extractedUrl: null });
-            input.value = '';
-            render();
-        }
-    }
-
-    window.removeRegex = function(index) {
-        regexConditions.splice(index, 1);
-        render();
     }
 
     // 🌟 適合ファイルをリストから外す処理
