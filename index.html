@@ -84,8 +84,15 @@
     // 絵文字アイコンはあくまで隣接するテキストを視覚的に補うだけの装飾であり、
     // 意味は直後のテキストがすべて伝えている。スクリーンリーダーが絵文字自体を
     // 読み上げて混乱しないよう aria-hidden="true" で隠す（見た目は変わらない）。
-    function withIcon(emoji, text) {
-        return `<span aria-hidden="true">${emoji}</span> ${text}`;
+    //
+    // 加えて、環境によっては絵文字の字形が用意されておらず表示できない
+    // （文字化け・豆腐（□）表示になる）ことがあるため、label を渡した場合は
+    // title 属性として設定する。ホバー時にブラウザ標準のツールチップとして
+    // アイコンの意味を表示できるようにし、視覚的な代替テキストとする
+    // （表示は変わらず、ホバーしたときだけ見える）。
+    function withIcon(emoji, text, label) {
+        const titleAttr = label ? ` title="${label}"` : '';
+        return `<span aria-hidden="true"${titleAttr}>${emoji}</span> ${text}`;
     }
 
     // regex_config.js をキャッシュさせずに読み込む。
@@ -103,7 +110,7 @@
 
     loadRegexConfig().then(initApp).catch((error) => {
         console.error(error);
-        document.getElementById('status-message').innerHTML = withIcon('❌', '結合条件の読み込みに失敗しました。ページを再読み込みしてください。');
+        document.getElementById('status-message').innerHTML = withIcon('❌', '結合条件の読み込みに失敗しました。ページを再読み込みしてください。', 'エラー');
     });
 
     function initApp() {
@@ -132,7 +139,7 @@
         listInfoEl.textContent = `第${rawListId}回用`;
         listInfoEl.classList.remove('invalid');
     } else {
-        listInfoEl.innerHTML = withIcon('⚠️', '回数（exパラメータ）が指定されていないか無効なため、既定の条件を表示しています。');
+        listInfoEl.innerHTML = withIcon('⚠️', '回数（exパラメータ）が指定されていないか無効なため、既定の条件を表示しています。', '警告');
         listInfoEl.classList.add('invalid');
     }
 
@@ -178,10 +185,10 @@
             div.className = 'regex-item';
             div.innerHTML = `
                 <div class="regex-item-main">
-                    <span class="status ${isMet ? 'met' : 'unmet'}">${isMet ? withIcon('✅', '確認済み') : withIcon('❌', '未確認')}</span>
+                    <span class="status ${isMet ? 'met' : 'unmet'}">${isMet ? withIcon('✅', '確認済み', '確認済み') : withIcon('❌', '未確認', '未確認')}</span>
                     <span class="pattern">${escapeHtml(cond.pattern)}</span>
                 </div>
-                ${cond.description ? `<div class="pattern-desc">${withIcon('📝', escapeHtml(cond.description))}</div>` : ''}
+                ${cond.description ? `<div class="pattern-desc">${withIcon('📝', escapeHtml(cond.description), '説明')}</div>` : ''}
             `;
             regexListDiv.appendChild(div);
         });
@@ -195,12 +202,12 @@
                 li.className = 'file-item';
                 li.innerHTML = `
                     <div class="file-details">
-                        <div class="file-info">${withIcon('📄', escapeHtml(cond.matchedFile.name))}</div>
-                        <div class="url-info">${withIcon('🔗', '抽出URL: ' + escapeHtml(cond.extractedUrl))}</div>
-                        <div class="match-badge match-success">${withIcon('🎯', '条件合致: ' + (cond.description ? escapeHtml(cond.description) : escapeHtml(cond.pattern)))}</div>
+                        <div class="file-info">${withIcon('📄', escapeHtml(cond.matchedFile.name), 'ファイル')}</div>
+                        <div class="url-info">${withIcon('🔗', '抽出URL: ' + escapeHtml(cond.extractedUrl), 'リンク')}</div>
+                        <div class="match-badge match-success">${withIcon('🎯', '条件合致: ' + (cond.description ? escapeHtml(cond.description) : escapeHtml(cond.pattern)), '条件合致')}</div>
                         ${cond.description ? `<div class="pattern-desc">（${escapeHtml(cond.pattern)}）</div>` : ''}
                     </div>
-                    <button class="btn-danger btn-file-delete" onclick="removeMatchedFile(${index})">${withIcon('✕', '削除')}</button>
+                    <button class="btn-danger btn-file-delete" onclick="removeMatchedFile(${index})">${withIcon('✕', '削除', '削除')}</button>
                 `;
                 fileListUl.appendChild(li);
             }
@@ -212,11 +219,11 @@
             li.className = 'file-item';
             li.innerHTML = `
                 <div class="file-details">
-                    <div class="file-info">${withIcon('📄', escapeHtml(item.file.name))}</div>
-                    <div class="url-info">${withIcon('🔗', '抽出URL: ' + (item.url ? escapeHtml(item.url) : 'URLが見つかりません'))}</div>
-                    <div class="match-badge match-error">${withIcon('⚠️', '不適合ファイル')}</div>
+                    <div class="file-info">${withIcon('📄', escapeHtml(item.file.name), 'ファイル')}</div>
+                    <div class="url-info">${withIcon('🔗', '抽出URL: ' + (item.url ? escapeHtml(item.url) : 'URLが見つかりません'), 'リンク')}</div>
+                    <div class="match-badge match-error">${withIcon('⚠️', '不適合ファイル', '警告')}</div>
                 </div>
-                <button class="btn-danger btn-file-delete" onclick="removeUnmatchedFile(${index})">${withIcon('✕', '削除')}</button>
+                <button class="btn-danger btn-file-delete" onclick="removeUnmatchedFile(${index})">${withIcon('✕', '削除', '削除')}</button>
             `;
             fileListUl.appendChild(li);
         });
@@ -224,7 +231,7 @@
         const isReady = regexConditions.length > 0 && metCount === regexConditions.length;
         if (isReady) {
             mergeBtn.disabled = false;
-            mergeBtn.innerHTML = withIcon('✅', 'PDFを結合してダウンロード');
+            mergeBtn.innerHTML = withIcon('✅', 'PDFを結合してダウンロード', '準備完了');
         } else {
             mergeBtn.disabled = true;
             mergeBtn.innerText = `条件に当てはまるPDFファイルが揃っていません（${metCount} / ${regexConditions.length}）`;
@@ -262,7 +269,7 @@
     });
 
     async function processFiles(files) {
-        statusMsg.innerHTML = withIcon('🔍', 'PDFを解析中...');
+        statusMsg.innerHTML = withIcon('🔍', 'PDFを解析中...', '処理中');
         statusMsg.style.color = '#333';
 
         for (let file of files) {
@@ -324,7 +331,7 @@
     }
 
     mergeBtn.addEventListener('click', async () => {
-        statusMsg.innerHTML = withIcon('⚙️', '結合処理を実行中...');
+        statusMsg.innerHTML = withIcon('⚙️', '結合処理を実行中...', '処理中');
         statusMsg.style.color = '#333';
         mergeBtn.disabled = true;
 
@@ -378,12 +385,12 @@
             a.remove();
             window.URL.revokeObjectURL(url);
 
-            statusMsg.innerHTML = withIcon('✨', 'ダウンロードが完了しました！');
+            statusMsg.innerHTML = withIcon('✨', 'ダウンロードが完了しました！', '完了');
             statusMsg.style.color = '#2e7d32';
 
         } catch (error) {
             console.error(error);
-            statusMsg.innerHTML = withIcon('❌', '結合処理中にエラーが発生しました。');
+            statusMsg.innerHTML = withIcon('❌', '結合処理中にエラーが発生しました。', 'エラー');
             statusMsg.style.color = '#c62828';
         } finally {
             render(); 
