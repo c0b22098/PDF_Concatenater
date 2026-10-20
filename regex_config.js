@@ -5,21 +5,21 @@
 const REGEX_LISTS = {
     1: [
         { pattern: "https://github\.com/.*/commits/main", description: "コミット履歴のURL" },
-        { pattern: "https://github\.com/.*/blob/main/(ex1/)?flying_kokaton\.py", description: "flying_kokaton.py のソースコードURL" }
+        { pattern: "https://github\.com/.*/blob/main/(?:ex1/)?flying_kokaton\.py", description: "flying_kokaton.py のソースコードURL" }
     ],
     2: [
         { pattern: "https://github\.com/.*/commits/main", description: "コミット履歴のURL" },
-        { pattern: "https://github\.com/.*/blob/main/(ex2/)?dodge_bomb\.py", description: "dodge_bomb.py のソースコードURL" },
+        { pattern: "https://github\.com/.*/blob/main/(?:ex2/)?dodge_bomb\.py", description: "dodge_bomb.py のソースコードURL" },
         { pattern: "https://github\.com/.*/issues", description: "Issue一覧ページのURL" }
     ],
     3: [
-        { pattern: "https://github\.com/.*/blob/main/(ex3/)?fight_kokaton\.py", description: "fight_kokaton.py のソースコードURL" },
+        { pattern: "https://github\.com/.*/blob/main/(?:ex3/)?fight_kokaton\.py", description: "fight_kokaton.py のソースコードURL" },
         { pattern: "https://github\.com/.*/branches", description: "ブランチ一覧ページのURL" },
         { pattern: "https://github\.com/.*/compare/.*", description: "比較（compare）ページのURL" }
     ],
     4: [
         { pattern: "https://github\.com/.*/commits/main", description: "コミット履歴のURL" },
-        { pattern: "https://github\.com/.*/blob/main/(ex4/)?musou_kokaton\.py", description: "musou_kokaton.py のソースコードURL" }
+        { pattern: "https://github\.com/.*/blob/main/(?:ex4/)?musou_kokaton\.py", description: "musou_kokaton.py のソースコードURL" }
     ],
     5: [
         { pattern: "https://github\.com/.*/blob/.*/README\.md", description: "README.md のURL" },
